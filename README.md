@@ -97,6 +97,13 @@ Open your browser at: **http://localhost:5000**
 
 ---
 
+## Note on the trained model
+
+The trained model file (`plant_disease_model.h5`) is not included in this repo due to size.
+To use this project:
+1. Download the dataset from Kaggle (link above)
+2. Run `python model/train.py` to train and generate the model
+
 ## Model Architecture
 
 | Component         | Details                                                 |
