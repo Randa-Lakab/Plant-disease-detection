@@ -2,9 +2,7 @@
 
 Detect plant leaf diseases from images using a fine-tuned **MobileNetV2** CNN, served via a **Flask** web app.
 
----
-
-## Project Structure
+### Project Structure
 
 ```
 plant-disease-detection/
@@ -33,10 +31,7 @@ plant-disease-detection/
 ├── requirements.txt
 └── README.md
 ```
-
----
-
-## Setup
+### Setup
 
 ### 1. Clone / download the project
 
@@ -63,9 +58,7 @@ pip install -r requirements.txt
 - Download and extract into `dataset/`
 - Make sure you have `dataset/Train/` and `dataset/Test/` folders
 
----
-
-## Train the Model
+### Train the Model
 
 ```bash
 cd model
@@ -80,9 +73,7 @@ This will:
 
 > Training takes ~5-15 min on GPU, longer on CPU.
 
----
-
-## Run the Flask App
+### Run the Flask App
 
 ```bash
 cd app
@@ -95,16 +86,14 @@ Open your browser at: **http://localhost:5000**
 - Click **Analyze Leaf**
 - See: predicted disease, confidence score, treatment advice, and top-3 predictions
 
----
-
-## Note on the trained model
+### Note on the trained model
 
 The trained model file (`plant_disease_model.h5`) is not included in this repo due to size.
 To use this project:
 1. Download the dataset from Kaggle (link above)
 2. Run `python model/train.py` to train and generate the model
 
-## Model Architecture
+### Model Architecture
 
 | Component         | Details                                                 |
 |-------------------|---------------------------------------------------------|
@@ -115,18 +104,14 @@ To use this project:
 | Training Phase 2  | Fine-tune last 30 layers (Adam lr=1e-4)                 |
 | Augmentation      | Rotation, flip, zoom, shift                             |
 
----
-
-## Tips
+### Tips
 
 - **Better accuracy**: increase `EPOCHS` or use a larger base model (EfficientNetB3).
 - **New classes**: just add more folders inside `dataset/Train/` — the script auto-detects them.
 - **GPU**: install `tensorflow-gpu` for much faster training.
 - **Production**: swap `app.run(debug=True)` for Gunicorn + Nginx.
 
----
-
-## Tech Stack
+### Tech Stack
 
 - Python 3.10+
 - TensorFlow / Keras
