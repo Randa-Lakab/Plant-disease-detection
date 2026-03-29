@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeafScan — Plant Disease Detector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1a0f;
+      --surface:   #122116;
+      --card:      #172d1c;
+      --border:    #2a4530;
+      --accent:    #5ddb7c;
+      --accent2:   #9eff81;
+      --warn:      #f5c542;
+      --danger:    #ff6b6b;
+      --text:      #e8f5ea;
+      --muted:     #7a9e82;
+      --radius:    16px;
+      --font-head: 'Playfair Display', Georgia, serif;
+      --font-body: 'DM Sans', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background texture ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(93,219,124,.07) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 80% at 80% 90%, rgba(93,219,124,.05) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── Layout ── */
+    .wrapper { position: relative; z-index: 1; max-width: 1000px; margin: 0 auto; padding: 32px 20px 80px; }
+
+    /* ── Header ── */
+    header { text-align: center; padding: 60px 0 48px; }
+    header h1 { font-family: var(--font-head); font-size: clamp(2.2rem, 6vw, 3.4rem); color: var(--accent); letter-spacing: -1px; line-height: 1.1; }
+    header p  { color: var(--muted); font-size: 1rem; margin-top: 10px; font-weight: 300; letter-spacing: .3px; }
+
+    /* ── Upload Card ── */
+    .upload-card {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px 32px;
+      margin-bottom: 32px;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 56px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .25s, background .25s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(93,219,124,.04);
+    }
+    .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+    .drop-zone p { color: var(--muted); font-size: .95rem; }
+    .drop-zone span { color: var(--accent); font-weight: 500; }
+
+    /* Preview */
+    #preview-wrap { display: none; margin-top: 24px; text-align: center; }
+    #preview-wrap img { max-height: 260px; max-width: 100%; border-radius: 10px; border: 1px solid var(--border); object-fit: contain; }
+    #file-name { font-size: .85rem; color: var(--muted); margin-top: 8px; }
+
+    /* Button */
+    .btn-predict {
+      display: block; width: 100%; margin-top: 24px;
+      padding: 15px;
+      background: var(--accent); color: #0d1a0f;
+      font-family: var(--font-body); font-size: 1rem; font-weight: 500;
+      border: none; border-radius: 10px; cursor: pointer;
+      transition: background .2s, transform .15s;
+      letter-spacing: .4px;
+    }
+    .btn-predict:hover  { background: var(--accent2); transform: translateY(-1px); }
+    .btn-predict:active { transform: translateY(0); }
+    .btn-predict:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* ── Loading ── */
+    #loading { display: none; text-align: center; padding: 40px; }
+    .spinner {
+      width: 48px; height: 48px; border-radius: 50%;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      animation: spin .8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: var(--muted); font-size: .9rem; }
+
+    /* ── Result Card ── */
+    #result { display: none; }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 640px) { .result-grid { grid-template-columns: 1fr; } }
+
+    .result-img-wrap img {
+      width: 100%; border-radius: 12px;
+      border: 1px solid var(--border);
+      object-fit: cover; aspect-ratio: 1;
+    }
+
+    .result-info {
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 28px;
+    }
+
+    .badge {
+      display: inline-block; padding: 4px 12px;
+      border-radius: 20px; font-size: .75rem; font-weight: 500;
+      margin-bottom: 12px; text-transform: uppercase; letter-spacing: .8px;
+    }
+    .badge.healthy  { background: rgba(93,219,124,.15); color: var(--accent); border: 1px solid rgba(93,219,124,.3); }
+    .badge.diseased { background: rgba(255,107,107,.15); color: var(--danger); border: 1px solid rgba(255,107,107,.3); }
+    .badge.unknown  { background: rgba(245,197,66,.15);  color: var(--warn);   border: 1px solid rgba(245,197,66,.3); }
+
+    .prediction-name { font-family: var(--font-head); font-size: 1.9rem; color: var(--text); margin-bottom: 6px; }
+    .confidence-line { color: var(--muted); font-size: .9rem; margin-bottom: 20px; }
+    .confidence-line strong { color: var(--accent); font-size: 1.1rem; }
+
+    .conf-bar-wrap { margin-bottom: 20px; }
+    .conf-bar-bg { background: var(--surface); border-radius: 6px; height: 8px; overflow: hidden; }
+    .conf-bar-fill {
+      height: 100%; border-radius: 6px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 1s ease; width: 0;
+    }
+
+    .info-block { margin-bottom: 14px; }
+    .info-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 4px; }
+    .info-value { font-size: .9rem; color: var(--text); line-height: 1.55; }
+
+    .severity-pill {
+      display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: .8rem;
+    }
+    .severity-None     { background: rgba(93,219,124,.15); color: var(--accent); }
+    .severity-Moderate { background: rgba(245,197,66,.15);  color: var(--warn); }
+    .severity-High     { background: rgba(255,107,107,.15); color: var(--danger); }
+    .severity-Unknown  { background: rgba(122,158,130,.15); color: var(--muted); }
+
+    /* Top-3 */
+    .top3-card {
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 24px;
+    }
+    .top3-card h3 { font-size: .9rem; color: var(--muted); margin-bottom: 18px; text-transform: uppercase; letter-spacing: .8px; }
+
+    .bar-item { margin-bottom: 16px; }
+    .bar-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: .88rem; }
+    .bar-name   { color: var(--text); }
+    .bar-pct    { color: var(--muted); }
+    .bar-track  { background: var(--surface); border-radius: 4px; height: 6px; }
+    .bar-fill   { height: 100%; border-radius: 4px; background: var(--accent); transition: width 1.2s ease; width: 0; }
+    .bar-fill.second { background: var(--muted); }
+    .bar-fill.third  { background: var(--border); }
+
+    /* Reset btn */
+    .btn-reset {
+      margin-top: 24px; padding: 11px 28px;
+      background: transparent; color: var(--muted);
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: var(--font-body); font-size: .9rem; cursor: pointer;
+      transition: color .2s, border-color .2s;
+    }
+    .btn-reset:hover { color: var(--text); border-color: var(--muted); }
+
+    /* ── Error Toast ── */
+    #error-msg {
+      display: none; background: rgba(255,107,107,.12); color: var(--danger);
+      border: 1px solid rgba(255,107,107,.3); border-radius: 10px;
+      padding: 14px 18px; margin-top: 16px; font-size: .9rem;
+    }
+
+    /* ── Footer ── */
+    footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 20px 0; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <h1>LeafScan</h1>
+    <p>Upload a plant leaf photo &mdash; our CNN model identifies diseases instantly</p>
+  </header>
+
+  <!-- Upload Section -->
+  <div id="upload-section" class="upload-card">
+      <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp" />
+      <p><span>Click to upload</span> or drag &amp; drop</p>
+      <p style="font-size:.82rem;margin-top:6px;">PNG, JPG, WEBP &mdash; max 10 MB</p>
+    </div>
+
+    <div id="preview-wrap">
+      <img id="preview-img" src="" alt="Preview" />
+      <div id="file-name"></div>
+    </div>
+
+    <div id="error-msg"></div>
+
+    <button class="btn-predict" id="predict-btn" disabled>Analyze Leaf</button>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Analyzing leaf tissue &hellip;</p>
+  </div>
+
+  <!-- Result -->
+  <div id="result">
+    <div class="result-grid">
+      <div class="result-img-wrap">
+        <img id="result-img" src="" alt="Analyzed leaf" />
+      </div>
+      <div class="result-info">
+        <div class="badge" id="status-badge">Healthy</div>
+        <div class="prediction-name" id="pred-name">—</div>
+        <div class="confidence-line">Confidence: <strong id="pred-conf">—</strong></div>
+
+        <div class="conf-bar-wrap">
+          <div class="conf-bar-bg"><div class="conf-bar-fill" id="conf-bar"></div></div>
+        </div>
+
+        <div class="info-block">
+          <div class="info-label">Description</div>
+          <div class="info-value" id="info-desc">—</div>
+        </div>
+        <div class="info-block">
+          <div class="info-label">Severity</div>
+          <div class="info-value"><span class="severity-pill" id="severity-pill">—</span></div>
+        </div>
+        <div class="info-block">
+          <div class="info-label">Recommended Treatment</div>
+          <div class="info-value" id="info-treat">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top-3 Bar Chart -->
+    <div class="top3-card">
+      <h3>Top Predictions</h3>
+      <div id="top3-bars"></div>
+    </div>
+
+    <button class="btn-reset" id="reset-btn">← Analyze Another Leaf</button>
+  </div>
+
+</div>
+
+<footer>LeafScan &bull; CNN Plant Disease Detection &bull; TensorFlow / Keras</footer>
+
+<script>
+  const dropZone   = document.getElementById('drop-zone');
+  const fileInput  = document.getElementById('file-input');
+  const previewWrap= document.getElementById('preview-wrap');
+  const previewImg = document.getElementById('preview-img');
+  const fileName   = document.getElementById('file-name');
+  const predictBtn = document.getElementById('predict-btn');
+  const loading    = document.getElementById('loading');
+  const result     = document.getElementById('result');
+  const errorMsg   = document.getElementById('error-msg');
+  const uploadSec  = document.getElementById('upload-section');
+
+  let selectedFile = null;
+
+  // Drag & drop
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  function handleFile(file) {
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+      previewImg.src = e.target.result;
+      previewWrap.style.display = 'block';
+      fileName.textContent = file.name + '  (' + (file.size / 1024).toFixed(1) + ' KB)';
+      predictBtn.disabled = false;
+    };
+    reader.readAsDataURL(file);
+    hideError();
+  }
+
+  predictBtn.addEventListener('click', runPrediction);
+
+  async function runPrediction() {
+    if (!selectedFile) return;
+    hideError();
+    uploadSec.style.display = 'none';
+    loading.style.display   = 'block';
+    result.style.display    = 'none';
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+      const res  = await fetch('/predict', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Server error');
+
+      showResult(data);
+    } catch(err) {
+      loading.style.display   = 'none';
+      uploadSec.style.display = 'block';
+      showError(err.message);
+    }
+  }
+
+  function showResult(data) {
+    loading.style.display = 'none';
+    result.style.display  = 'block';
+
+    document.getElementById('result-img').src = data.image_url;
+    document.getElementById('pred-name').textContent  = data.prediction;
+    document.getElementById('pred-conf').textContent  = data.confidence.toFixed(1) + '%';
+    document.getElementById('info-desc').textContent  = data.info.description;
+    document.getElementById('info-treat').textContent = data.info.treatment;
+
+    // Badge
+    const badge = document.getElementById('status-badge');
+    badge.textContent  = data.info.status.charAt(0).toUpperCase() + data.info.status.slice(1);
+    badge.className    = 'badge ' + data.info.status;
+
+    // Severity
+    const sev = document.getElementById('severity-pill');
+    sev.textContent = data.info.severity;
+    sev.className   = 'severity-pill severity-' + data.info.severity;
+
+    // Confidence bar (animate after render)
+    setTimeout(() => {
+      document.getElementById('conf-bar').style.width = data.confidence + '%';
+    }, 100);
+
+    // Top-3
+    const container = document.getElementById('top3-bars');
+    container.innerHTML = '';
+    const classes = ['', 'second', 'third'];
+    data.top3.forEach((item, i) => {
+      container.innerHTML += `
+        <div class="bar-item">
+          <div class="bar-header">
+            <span class="bar-name">${item.class}</span>
+            <span class="bar-pct">${item.confidence.toFixed(1)}%</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill ${classes[i]}" data-pct="${item.confidence}"></div>
+          </div>
+        </div>`;
+    });
+    setTimeout(() => {
+      document.querySelectorAll('.bar-fill').forEach(el => {
+        el.style.width = el.dataset.pct + '%';
+      });
+    }, 150);
+  }
+
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    result.style.display    = 'none';
+    uploadSec.style.display = 'block';
+    previewWrap.style.display = 'none';
+    previewImg.src = '';
+    fileInput.value = '';
+    predictBtn.disabled = true;
+    selectedFile = null;
+    document.getElementById('conf-bar').style.width = '0';
+  });
+
+  function showError(msg) { errorMsg.textContent = 'Error: ' + msg; errorMsg.style.display = 'block'; }
+  function hideError()    { errorMsg.style.display = 'none'; }
+</script>
+</body>
+</html>
