@@ -1,4 +1,4 @@
-# Plant Leaf Disease Detection — CNN + Flask
+## Plant Leaf Disease Detection - CNN + Flask
 
 Detect plant leaf diseases from images using a fine-tuned **MobileNetV2** CNN, served via a **Flask** web app.
 
